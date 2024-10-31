@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Proprietários</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #e8a3e6, #a06bc6);
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            text-align: center;
+        }
+
+        .search-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        #search-input {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin-right: 10px;
+            width: 300px;
+        }
+
+        #search-button {
+            padding: 10px;
+            background-color: #8e2d8d;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #search-button:hover {
+            background-color: #a06bc6;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background: #8e2d8d;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button {
+            background-color: #6a2e6e;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #8e2d8d;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"],
+        input[type="email"] {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin: 5px 0;
+            width: 300px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        a {
+            color: #fff;
+            text-decoration: none;
+            text-align: center;
+            display: block;
+            margin-top: 20px;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Proprietários</h1>
+
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="Pesquisar pelo nome">
+        <button id="search-button">Buscar</button>
+    </div>
+
+    <ul id="proprietarios-list"></ul>
+
+    <h2>Criar Proprietário</h2>
+    <form id="create-proprietario">
+        <input type="text" placeholder="Nome" required>
+        <input type="email" placeholder="Email" required>
+        <input type="text" placeholder="Endereço" required>
+        <button type="submit">Criar</button>
+    </form>
+
+    <h2>Editar Proprietário</h2>
+    <form id="edit-proprietario" class="hidden">
+        <input type="hidden" id="edit-id">
+        <input type="text" placeholder="Nome" id="edit-nome" required>
+        <input type="email" placeholder="Email" id="edit-email" required>
+        <input type="text" placeholder="Endereço" id="edit-endereco" required>
+        <button type="submit">Atualizar</button>
+    </form>
+
+    <script>
+        // Carregar todos os proprietários ou os que foram pesquisados
+        function loadProprietarios(name = '') {
+            fetch(`/api/proprietarios${name ? `?name=${encodeURIComponent(name)}` : ''}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateProprietariosList(data);
+                });
+        }
+
+        // Atualiza a lista de proprietários na tela
+        function updateProprietariosList(proprietarios) {
+            const list = document.getElementById('proprietarios-list');
+            list.innerHTML = '';
+            proprietarios.forEach(proprietario => {
+                const li = document.createElement('li');
+                li.textContent = `${proprietario.nome} - ${proprietario.email} - ${proprietario.endereco}`; // Exibindo o endereço
+                li.appendChild(createEditButton(proprietario.id));
+                li.appendChild(createDeleteButton(proprietario.id));
+                list.appendChild(li);
+            });
+        }
+
+        function createEditButton(id) {
+            const button = document.createElement('button');
+            button.textContent = 'Editar';
+            button.onclick = () => editProprietario(id);
+            return button;
+        }
+
+        function createDeleteButton(id) {
+            const button = document.createElement('button');
+            button.textContent = 'Deletar';
+            button.onclick = () => deleteProprietario(id);
+            return button;
+        }
+
+        document.getElementById('create-proprietario').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nome = this[0].value;
+            const email = this[1].value;
+            const endereco = this[2].value;
+
+            fetch('/api/proprietarios', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome, email, endereco }),
+            }).then(() => {
+                loadProprietarios(); // Recarregar a lista após criar
+                this.reset(); // Limpar o formulário
+            });
+        });
+
+        document.getElementById('edit-proprietario').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const nome = document.getElementById('edit-nome').value;
+            const email = document.getElementById('edit-email').value;
+            const endereco = document.getElementById('edit-endereco').value;
+
+            fetch(`/api/proprietarios/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome, email, endereco }),
+            }).then(() => {
+                loadProprietarios(); // Recarregar a lista após editar
+                this.reset(); // Limpar o formulário
+                this.classList.add('hidden'); // Esconder formulário de edição
+            });
+        });
+
+        function editProprietario(id) {
+            fetch(`/api/proprietarios/${id}`)
+                .then(response => response.json())
+                .then(proprietario => {
+                    document.getElementById('edit-id').value = proprietario.id;
+                    document.getElementById('edit-nome').value = proprietario.nome;
+                    document.getElementById('edit-email').value = proprietario.email;
+                    document.getElementById('edit-endereco').value = proprietario.endereco;
+                    document.getElementById('edit-proprietario').classList.remove('hidden'); // Mostrar formulário de edição
+                });
+        }
+
+        function deleteProprietario(id) {
+            fetch(`/api/proprietarios/${id}`, {
+                method: 'DELETE',
+            }).then(() => {
+                loadProprietarios(); // Recarregar a lista após deletar
+            });
+        }
+
+        document.getElementById('search-button').addEventListener('click', function() {
+            const name = document.getElementById('search-input').value;
+            loadProprietarios(name); // Carrega os proprietários baseados na busca
+        });
+
+        // Inicializa carregando todos os proprietários
+        loadProprietarios();
+    </script>
+
+    <a href="/">Voltar</a>
+</body>
+</html>

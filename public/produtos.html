@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Produtos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #e8a3e6, #a06bc6);
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Centraliza horizontalmente */
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2.5em; /* Tamanho do título principal */
+        }
+
+        .search-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 400px; /* Limita a largura do container de busca */
+        }
+
+        #search-input {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin-right: 10px;
+            flex: 1; /* O input ocupa o espaço disponível */
+            min-width: 0; /* Para evitar overflow */
+        }
+
+        #search-button {
+            padding: 10px 15px;
+            background-color: #8e2d8d;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #search-button:hover {
+            background-color: #a06bc6;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 400px; /* Limita a largura dos formulários */
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin: 5px 0;
+            width: 100%; /* O input ocupa a largura do formulário */
+            max-width: 400px; /* Limita a largura */
+        }
+
+        button {
+            background-color: #6a2e6e;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+            margin-top: 10px; /* Espaço acima dos botões */
+            width: 100%; /* Botão ocupa a largura do formulário */
+            max-width: 400px; /* Limita a largura */
+        }
+
+        button:hover {
+            background-color: #8e2d8d;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            width: 100%;
+            max-width: 600px; /* Limita a largura da lista */
+        }
+
+        li {
+            background: #8e2d8d;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        a {
+            color: #fff;
+            text-decoration: none;
+            text-align: center;
+            display: block;
+            margin-top: 20px;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gerenciamento de Produtos</h1>
+    
+    <div>
+        <input type="text" id="search-input" placeholder="Buscar por descrição">
+        <button id="search-button">Buscar</button>
+    </div>
+
+    <form id="create-produto">
+        <input type="text" placeholder="Descrição" required>
+        <input type="number" placeholder="Quantidade" required>
+        <input type="number" placeholder="Valor" required>
+        <select id="proprietario-select"></select>
+        <button type="submit">Adicionar Produto</button>
+    </form>
+
+    <form id="edit-produto" class="hidden">
+        <input type="hidden" id="edit-id">
+        <input type="text" id="edit-descricao" placeholder="Descrição" required>
+        <input type="number" id="edit-quantidade" placeholder="Quantidade" required>
+        <input type="number" id="edit-valor" placeholder="Valor" required>
+        <select id="edit-proprietario-select"></select>
+        <button type="submit">Atualizar Produto</button>
+    </form>
+
+    <ul id="produtos-list"></ul>
+
+    <script>
+        async function loadProprietarios() {
+            const response = await fetch('/api/proprietarios');
+            const proprietarios = await response.json();
+            const select = document.getElementById('proprietario-select');
+            const editSelect = document.getElementById('edit-proprietario-select');
+
+            proprietarios.forEach(proprietario => {
+                const option = document.createElement('option');
+                option.value = proprietario.id;
+                option.textContent = proprietario.nome;
+                select.appendChild(option);
+                const optionEdit = option.cloneNode(true);
+                editSelect.appendChild(optionEdit);
+            });
+        }
+
+        async function loadProdutos(searchValue = '') {
+            const response = await fetch(`/api/produtos?descricao=${searchValue}`);
+            const produtos = await response.json();
+            const produtosList = document.getElementById('produtos-list');
+            produtosList.innerHTML = '';
+
+            produtos.forEach(produto => {
+                const li = document.createElement('li');
+                li.textContent = `${produto.descricao} - ${produto.quantidade} - R$${produto.valor} - Proprietário: ${produto.proprietario.nome}`; // Incluindo o nome do proprietário
+                li.appendChild(createEditButton(produto.id));
+                li.appendChild(createDeleteButton(produto.id));
+                produtosList.appendChild(li);
+            });
+        }
+
+        function createEditButton(id) {
+            const button = document.createElement('button');
+            button.textContent = 'Editar';
+            button.onclick = () => {
+                editProduto(id);
+            };
+            return button;
+        }
+
+        function createDeleteButton(id) {
+            const button = document.createElement('button');
+            button.textContent = 'Deletar';
+            button.onclick = () => {
+                deleteProduto(id);
+            };
+            return button;
+        }
+
+        function editProduto(id) {
+            fetch(`/api/produtos/${id}`)
+                .then(response => response.json())
+                .then(produto => {
+                    document.getElementById('edit-id').value = produto.id;
+                    document.getElementById('edit-descricao').value = produto.descricao;
+                    document.getElementById('edit-quantidade').value = produto.quantidade;
+                    document.getElementById('edit-valor').value = produto.valor;
+                    document.getElementById('edit-proprietario-select').value = produto.proprietarioId;
+                    document.getElementById('edit-produto').classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar produto para editar:', error);
+                });
+        }
+
+        function deleteProduto(id) {
+            fetch(`/api/produtos/${id}`, {
+                method: 'DELETE',
+            })
+            .then(() => {
+                loadProdutos();
+            })
+            .catch(error => {
+                console.error('Erro ao deletar produto:', error);
+            });
+        }
+
+        document.getElementById('create-produto').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const descricao = this[0].value;
+            const quantidade = this[1].value;
+            const valor = this[2].value;
+            const proprietarioId = this[3].value;
+
+            fetch('/api/produtos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ descricao, quantidade, valor, proprietarioId }),
+            })
+            .then(() => {
+                this.reset();
+                loadProdutos();
+            })
+            .catch(error => {
+                console.error('Erro ao criar produto:', error);
+            });
+        });
+
+        document.getElementById('edit-produto').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const descricao = document.getElementById('edit-descricao').value;
+            const quantidade = document.getElementById('edit-quantidade').value;
+            const valor = document.getElementById('edit-valor').value;
+            const proprietarioId = document.getElementById('edit-proprietario-select').value;
+
+            fetch(`/api/produtos/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ descricao, quantidade, valor, proprietarioId }),
+            })
+            .then(() => {
+                this.reset();
+                document.getElementById('edit-produto').classList.add('hidden');
+                loadProdutos();
+            })
+            .catch(error => {
+                console.error('Erro ao atualizar produto:', error);
+            });
+        });
+
+        document.getElementById('search-button').addEventListener('click', function() {
+            const searchValue = document.getElementById('search-input').value;
+            loadProdutos(searchValue);
+        });
+
+        // Carregar dados ao iniciar a página
+        loadProprietarios();
+        loadProdutos();
+    </script>
+</body>
+</html>
